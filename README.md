@@ -196,7 +196,7 @@ local login; never paste tokens into chat or put secrets in browser variables.
 ## Submission
 
 - Live URL: https://tavrex-ai.pages.dev
-- Repository URL: https://github.com/zeddspear/tavrex-ai. The unauthenticated
+- Repository URL: https://github.com/zeddspear/tavrex. The unauthenticated
   visibility check returned HTTP 404 on September 24, 2026. Push the final local
   commits and verify public visibility or correct this URL before submitting.
 - [Product review route and notes](SUBMISSION.md).
