@@ -87,7 +87,7 @@ export function RecordingMeeting({
       <div className="detail-heading recording-heading">
         <div>
           <div className="eyebrow">
-            RECORDED DEMO ·{' '}
+            {meeting.provenance === 'reference-recording' ? 'REFERENCE RECORDING' : 'MEETING RECORDING'} ·{' '}
             {new Date(meeting.date).toLocaleDateString('en-US', {
               month: 'long',
               day: 'numeric',
@@ -452,7 +452,7 @@ export function RecordingExperience({
             aria-label={
               privateMeeting
                 ? 'Uploaded meeting recording'
-                : 'Demo meeting recording'
+                : 'Meeting recording'
             }
             onLoadedMetadata={ready}
             onCanPlay={() => {

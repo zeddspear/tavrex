@@ -5,6 +5,10 @@ import {
   uploadLimits,
   type UploadedMeeting,
 } from '../../../../packages/shared/ingestion';
+import {
+  longRecordingSeconds,
+  transcriptionAudio,
+} from './transcription-audio';
 
 export async function uploadApi(path: string, method = 'GET', body?: unknown) {
   const response = await fetch(`/api/${path}`, {
@@ -100,39 +104,76 @@ function emit(id: string, state: Transfer) {
   transfers.set(id, state);
   window.dispatchEvent(new CustomEvent('tavrex-transfer', { detail: id }));
 }
-export async function transferRecording(file: File, meeting: UploadedMeeting) {
+async function putSigned(
+  url: string,
+  body: Blob,
+  contentType: string,
+  onProgress: (fraction: number) => void,
+) {
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Content-Type', contentType);
+    xhr.timeout = 120000;
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(event.loaded / event.total);
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(
+            new Error('Upload failed. Choose the recording again to retry.'),
+          );
+    xhr.onerror = xhr.ontimeout = () =>
+      reject(
+        new Error(
+          'The upload connection was interrupted. Choose the recording again to retry.',
+        ),
+      );
+    xhr.send(body);
+  });
+}
+
+export async function transferRecording(
+  file: File,
+  meeting: UploadedMeeting,
+  preparedAudio?: Blob,
+) {
   emit(meeting.id, { progress: 0 });
   try {
     if (file.size !== meeting.media_size)
       throw new Error('Choose the same recording to retry this upload.');
-    const { url } = z
-      .object({ url: z.string().url() })
-      .parse(await uploadApi(`uploads/${meeting.id}/upload-url`, 'POST'));
-    await new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', url);
-      xhr.setRequestHeader('Content-Type', meeting.media_type);
-      xhr.timeout = 120000;
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable)
-          emit(meeting.id, {
-            progress: Math.round((event.loaded / event.total) * 100),
-          });
-      };
-      xhr.onload = () =>
-        xhr.status >= 200 && xhr.status < 300
-          ? resolve()
-          : reject(
-              new Error('Upload failed. Choose the recording again to retry.'),
-            );
-      xhr.onerror = xhr.ontimeout = () =>
-        reject(
-          new Error(
-            'The upload connection was interrupted. Choose the recording again to retry.',
-          ),
+    const long = meeting.duration_seconds > longRecordingSeconds;
+    try {
+      const { url } = z
+        .object({ url: z.string().url() })
+        .parse(await uploadApi(`uploads/${meeting.id}/upload-url`, 'POST'));
+      await putSigned(url, file, meeting.media_type, (fraction) => {
+        emit(meeting.id, {
+          progress: Math.round(fraction * (long ? 65 : 100)),
+        });
+      });
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.message !== 'This recording has already been uploaded.'
+      )
+        throw error;
+    }
+    if (long) {
+      emit(meeting.id, { progress: 65 });
+      const audio = preparedAudio ?? (await transcriptionAudio(file));
+      if (audio.size > uploadLimits.bytes)
+        throw new Error('The audio track is too large to process.');
+      const { url } = z
+        .object({ url: z.string().url() })
+        .parse(
+          await uploadApi(`uploads/${meeting.id}/upload-url?audio=1`, 'POST'),
         );
-      xhr.send(file);
-    });
+      await putSigned(url, audio, 'audio/wav', (fraction) => {
+        emit(meeting.id, { progress: 65 + Math.round(fraction * 35) });
+      });
+    }
     emit(meeting.id, { progress: 100, confirmed: true });
     await uploadApi(`uploads/${meeting.id}/process`, 'POST');
     transfers.delete(meeting.id);
@@ -157,10 +198,14 @@ export async function createUpload(
   onCreated: (id: string) => void,
 ) {
   const input = await inspectMedia(file);
+  const audio =
+    input.duration > longRecordingSeconds
+      ? await transcriptionAudio(file)
+      : undefined;
   await uploadApi('session', 'POST');
   const meeting = uploadedMeetingSchema.parse(
     await uploadApi('uploads', 'POST', { ...input, title }),
   );
   onCreated(meeting.id);
-  await transferRecording(file, meeting);
+  await transferRecording(file, meeting, audio);
 }

@@ -1,21 +1,21 @@
 /* Tavrex: warm paper, graphite type, one evidence accent. */
 :root {
-  --page-background: #f8f9f7;
-  --surface: #ffffff;
-  --surface-elevated: #ffffff;
-  --surface-subtle: #f0f2ef;
-  --text-primary: #202724;
-  --text-secondary: #47534d;
-  --text-tertiary: #65716a;
-  --text-inverse: #ffffff;
-  --accent-foreground: #ffffff;
-  --danger-foreground: #ffffff;
-  --border: #dce2dc;
-  --hover: #ebeeea;
-  --active: #e9eafa;
-  --accent: #5358a6;
-  --accent-hover: #40458b;
-  --accent-subtle: #eeeffa;
+  --page-background: #f6f4ef;
+  --surface: #fffdf9;
+  --surface-elevated: #fffdf9;
+  --surface-subtle: #efede7;
+  --text-primary: #20201e;
+  --text-secondary: #54534e;
+  --text-tertiary: #75736c;
+  --text-inverse: #fffdf9;
+  --accent-foreground: #fffdf9;
+  --danger-foreground: #fffdf9;
+  --border: #ddd9d1;
+  --hover: #e9e5dd;
+  --active: #fce7dc;
+  --accent: #b54828;
+  --accent-hover: #97391f;
+  --accent-subtle: #fae9df;
   --success: #35634b;
   --success-subtle: #edf4ee;
   --warning: #896126;
@@ -27,9 +27,9 @@
   --media-text: #d5ddd7;
   --muted: var(--text-tertiary);
   --line: var(--border);
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
   --control-height: 36px;
   --input-height: 40px;
   --panel-padding: 24px;
@@ -67,22 +67,22 @@
 /* A quieter layered palette for sustained meeting review. */
 html[data-theme='dark'] {
   color-scheme: dark;
-  --page-background: #171d1b;
-  --surface: #202925;
-  --surface-elevated: #29332d;
-  --surface-subtle: #1b2420;
-  --text-primary: #f0f3ec;
-  --text-secondary: #c5d0c6;
-  --text-tertiary: #9eaea2;
-  --text-inverse: #ffffff;
-  --accent-foreground: #171d1b;
-  --danger-foreground: #171d1b;
-  --border: #39483f;
-  --hover: #303d34;
-  --active: #383e59;
-  --accent: #b9bcff;
-  --accent-hover: #d0d2ff;
-  --accent-subtle: #343954;
+  --page-background: #050505;
+  --surface: #0d0d0d;
+  --surface-elevated: #141414;
+  --surface-subtle: #080808;
+  --text-primary: #f5f3ef;
+  --text-secondary: #c1bdb8;
+  --text-tertiary: #98918a;
+  --text-inverse: #fffdf9;
+  --accent-foreground: #15110e;
+  --danger-foreground: #15110e;
+  --border: #292929;
+  --hover: #181818;
+  --active: #2b1d17;
+  --accent: #ed8b63;
+  --accent-hover: #f6a47f;
+  --accent-subtle: #2d1d17;
   --success: #a6d8ad;
   --success-subtle: #2c4333;
   --warning: #efc58f;
@@ -90,6 +90,6 @@ html[data-theme='dark'] {
   --danger: #f3a1aa;
   --danger-hover: #ffc4ca;
   --danger-subtle: #493037;
-  --media-surface: #101614;
+  --media-surface: #090b0a;
   --media-text: #e0e8e0;
 }

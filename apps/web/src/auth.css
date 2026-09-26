@@ -43,7 +43,7 @@
 .auth-brand sup {
   align-self: flex-start;
   margin: 2px 0 0 -5px;
-  color: #c7c9f3;
+  color: #ffb38f;
   font-size: 10px;
   letter-spacing: 0.04em;
 }
@@ -63,7 +63,7 @@
 .auth-eyebrow > span {
   width: 6px;
   height: 6px;
-  background: #6267b8;
+  background: #d46d43;
   border-radius: 50%;
   box-shadow: 0 0 0 4px #e5e6f3;
 }
@@ -71,8 +71,8 @@
   color: #c0cbbf;
 }
 .auth-story .auth-eyebrow > span {
-  background: #c7c9ff;
-  box-shadow: 0 0 0 4px #3e4650;
+  background: #ffb38f;
+  box-shadow: 0 0 0 4px #4a3026;
 }
 .auth-story h2 {
   margin: 24px 0 20px;
@@ -83,7 +83,7 @@
   letter-spacing: -0.07em;
 }
 .auth-story h2 em {
-  color: #c3c5fa;
+  color: #ffb38f;
   font-style: normal;
 }
 .auth-story-content > p {
@@ -161,7 +161,7 @@
   font-weight: 650;
 }
 .auth-back:hover {
-  color: #5358a6;
+  color: #b54828;
 }
 .auth-form-wrap {
   width: min(100%, 430px);
@@ -215,7 +215,7 @@
 }
 .auth-field input:focus {
   border-color: #6569b7;
-  box-shadow: 0 0 0 3px #eaebf7;
+  box-shadow: 0 0 0 3px #fae9df;
 }
 .auth-password-wrap {
   position: relative;
@@ -235,7 +235,7 @@
   color: #7c897f;
 }
 .auth-password-wrap button:hover {
-  color: #5358a6;
+  color: #b54828;
 }
 .auth-submit {
   width: 100%;
@@ -296,7 +296,7 @@
   color: #78847b;
 }
 .auth-switch a {
-  color: #5358a6;
+  color: #b54828;
   font-weight: 750;
 }
 .auth-switch a:hover {
@@ -323,7 +323,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: #5358a6;
+  color: #b54828;
   font-size: 12px;
   font-weight: 730;
 }
@@ -344,7 +344,7 @@
   width: 50px;
   height: 50px;
   border-radius: 11px;
-  color: #5358a6;
+  color: #b54828;
   background: #ececf7;
 }
 .auth-confirmation .auth-submit {
@@ -418,7 +418,7 @@
   line-height: 1.65;
 }
 .auth-callback > a:not(.auth-submit) {
-  color: #5358a6;
+  color: #b54828;
   font-size: 12px;
   font-weight: 700;
   margin-top: 15px;

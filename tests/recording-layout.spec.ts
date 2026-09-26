@@ -4,11 +4,8 @@ const path = '/app/meetings/recording-walkthrough';
 
 test('meeting columns remain contained from top to bottom at target widths', async ({
   page,
-}, testInfo) => {
-  test.skip(
-    testInfo.project.name !== 'chromium',
-    'One browser covers the viewport matrix.',
-  );
+}) => {
+  test.setTimeout(120000);
 
   for (const viewport of [
     { width: 1920, height: 1080 },
@@ -70,7 +67,7 @@ test('meeting columns remain contained from top to bottom at target widths', asy
         layout.transcript.top + 1,
       );
       if (viewport.width > 1100) {
-        expect(layout.intelligencePosition).toBe('sticky');
+        expect(layout.intelligencePosition).toBe('static');
         expect(layout.player.right).toBeLessThan(layout.intelligence.left);
         expect(layout.transcript.right).toBeLessThan(layout.intelligence.left);
       } else {

@@ -21,7 +21,7 @@ function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   document
     .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', theme === 'dark' ? '#171d1b' : '#f8f8f5');
+    ?.setAttribute('content', theme === 'dark' ? '#0a0a0a' : '#f6f4ef');
 }
 
 export function ThemeToggle({ className = '' }: { className?: string }) {

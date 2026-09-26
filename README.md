@@ -47,11 +47,10 @@ Requires Node 22.12+ (validated here using Node 24).
 
 ```sh
 npm ci
-npm run dev:api # first terminal: real Worker API using ignored .dev.vars
-npm run dev     # second terminal: Vite, proxying /api to port 8788
+npm run dev # starts the real Pages Worker API and Vite together using ignored .dev.vars
 ```
 
-Open http://localhost:5173 after configuring the server and applying the seed.
+Open http://127.0.0.1:5173 after configuring the server and applying the seed. `npm run dev:web` starts only Vite for isolated frontend work and browser tests; account login requires the Pages API on port 8788.
 The landing page is `/`, with `/login`, `/signup`, and the guest-accessible `/app`. Reviewers need no account; local development needs the ignored server variables
 described in [ingestion setup](docs/ingestion-setup.md).
 
@@ -144,7 +143,7 @@ local login; never paste tokens into chat or put secrets in browser variables.
 ## Free-tier constraints
 
 - Uploads are capped at 25 MB and ten minutes, with three uploads per browser and
-  twenty workspace uploads per rolling day, one hundred stored rows, and three
+  twenty workspace uploads per rolling day, one hundred stored rows, and six
   processing attempts per recording.
 - Processing runs in the foreground and depends on available Workers AI, R2, and
   Supabase allowances. There is no background queue or automatic retention job.

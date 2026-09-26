@@ -31,7 +31,7 @@ export default defineConfig({
   webServer: process.env.TAVREX_VERIFY_URL
     ? undefined
     : {
-        command: 'npm run dev',
+        command: 'npm run dev:web',
         url: 'http://127.0.0.1:5173',
         reuseExistingServer: !process.env.CI,
       },

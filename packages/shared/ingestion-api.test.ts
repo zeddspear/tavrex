@@ -65,9 +65,7 @@ describe('private ingestion API', () => {
           return Response.json(deleted ? [] : [row]);
         }
         if (method === 'DELETE') {
-          operations.push(
-            url.pathname.endsWith('/staging') ? 'staging' : 'media',
-          );
+          operations.push(url.pathname.split('/').at(-1) ?? '');
           return new Response(null, { status: 204 });
         }
         return new Response(null, { status: 404 });
@@ -87,10 +85,10 @@ describe('private ingestion API', () => {
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ deleted: true });
-    expect(new Set(operations.slice(0, 2))).toEqual(
-      new Set(['staging', 'media']),
+    expect(new Set(operations.slice(0, 4))).toEqual(
+      new Set(['staging', 'media', 'audio-staging', 'audio-media']),
     );
-    expect(operations[2]).toBe('database');
+    expect(operations[4]).toBe('database');
     const calls = vi.mocked(fetch).mock.calls;
     const databaseDelete = calls.find(
       ([input, init]) =>
@@ -376,6 +374,115 @@ describe('private ingestion API', () => {
     expect(
       run.mock.calls.filter(([model]) => model.includes('whisper')),
     ).toHaveLength(1);
+  });
+
+  it('transcribes long audio in bounded ranges and keeps source timestamps across chunks', async () => {
+    const id = '77777777-7777-4777-8777-777777777777';
+    const audioSize = 44 + 121 * 16000 * 2;
+    const header = new Uint8Array(44);
+    const view = new DataView(header.buffer);
+    for (const [offset, word] of [
+      [0, 'RIFF'],
+      [8, 'WAVE'],
+      [12, 'fmt '],
+      [36, 'data'],
+    ] as const) {
+      for (let index = 0; index < word.length; index++)
+        view.setUint8(offset + index, word.charCodeAt(index));
+    }
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, 16000, true);
+    view.setUint16(34, 16, true);
+    view.setUint32(40, audioSize - 44, true);
+    let row: Record<string, unknown> = {
+      id,
+      title: 'Long meeting',
+      media_type: 'video/webm',
+      media_size: 8,
+      duration_seconds: 121,
+      status: 'transcribing',
+      processing_progress: 35,
+      processing_error: null,
+      created_at: '2026-09-14T12:00:00Z',
+      transcript: null,
+      speaker_names: {},
+      intelligence: null,
+      owner_hash: 'b'.repeat(64),
+      storage_key: 'uploads/test',
+      processing_lease: null,
+      processing_started_at: null,
+      processing_attempts: 0,
+      media_uploaded_at: '2026-09-14T12:00:00Z',
+    };
+    const ranges: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | Request, init?: RequestInit) => {
+        const url = new URL(typeof input === 'string' ? input : input.url);
+        const method =
+          init?.method ?? (input instanceof Request ? input.method : 'GET');
+        if (url.origin === env.SUPABASE_URL) {
+          if (method === 'PATCH')
+            row = { ...row, ...JSON.parse(String(init?.body)) };
+          return Response.json([row]);
+        }
+        if (url.pathname.endsWith('/audio-staging'))
+          return new Response(null, { status: 404 });
+        const range =
+          input instanceof Request
+            ? input.headers.get('Range')
+            : new Headers(init?.headers).get('Range');
+        if (method === 'HEAD')
+          return new Response(null, {
+            headers: {
+              'Content-Length': String(audioSize),
+              'Content-Type': 'audio/wav',
+            },
+          });
+        if (!range) throw new Error('The full recording must not be buffered');
+        ranges.push(range);
+        if (range === 'bytes=0-43')
+          return new Response(header, { status: 206 });
+        const [, start, end] = /^bytes=(\d+)-(\d+)$/.exec(range) ?? [];
+        return new Response(new Uint8Array(Number(end) - Number(start) + 1), {
+          status: 206,
+        });
+      }),
+    );
+    const run = vi.fn(async (model: string) => {
+      if (!model.includes('whisper')) throw new Error('Analysis unavailable');
+      return {
+        text: 'Review the plan.',
+        segments: [{ start: 0, end: 1, text: 'Review the plan.' }],
+      };
+    });
+    const response = await ingestionApi(
+      new Request(`https://app.example/api/uploads/${id}/process`, {
+        method: 'POST',
+        headers: {
+          Cookie: `__Host-tavrex=${'a'.repeat(64)}`,
+          Origin: 'https://app.example',
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      }),
+      { ...env, AI: { run } },
+    );
+    const result = (await response.json()) as {
+      transcript: { start: number }[];
+      processing_error: string;
+    };
+    expect(result.processing_error).toBe('analysis_failed');
+    expect(result.transcript.map((segment) => segment.start)).toEqual([0, 120]);
+    expect(ranges).toEqual([
+      'bytes=0-43',
+      'bytes=44-3840043',
+      'bytes=3840044-3872043',
+    ]);
+    expect(
+      run.mock.calls.filter(([model]) => model.includes('whisper')),
+    ).toHaveLength(2);
   });
   it('leaves the public demo independent of credentials or guest authentication', async () => {
     const response = await ingestionApi(

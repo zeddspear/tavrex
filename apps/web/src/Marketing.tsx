@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import Lenis from 'lenis';
+import 'lenis/dist/lenis.css';
 import {
   ArrowDown,
   ArrowRight,
@@ -19,6 +21,24 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import './marketing-next.css';
+import './editorial.css';
+import './marketing-polish.css';
+import './marketing-motion.css';
+import './marketing-scroll.css';
+
+const chapters = [
+  { id: 'top', label: 'Introduction' },
+  { id: 'product', label: 'The workflow' },
+  { id: 'playback', label: 'Playback' },
+  { id: 'summaries', label: 'Summaries' },
+  { id: 'evidence', label: 'Source evidence' },
+  { id: 'search', label: 'Search' },
+  { id: 'moments', label: 'Moments' },
+  { id: 'use-cases', label: 'Use cases' },
+  { id: 'how-it-works', label: 'Getting started' },
+  { id: 'faq', label: 'Questions' },
+  { id: 'start', label: 'Start free' },
+] as const;
 
 const waveform = [
   18, 30, 16, 43, 66, 38, 25, 56, 75, 47, 24, 40, 65, 82, 58, 35, 68, 51, 25,
@@ -234,6 +254,84 @@ function Navigation() {
   );
 }
 
+function SectionRail() {
+  const [active, setActive] = useState(0);
+  const rail = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const targets = chapters.map(({ id }) => document.getElementById(id));
+    let frame: number | undefined;
+    const update = () => {
+      frame = undefined;
+      const marker = window.innerHeight * 0.38;
+      let next = 0;
+      targets.forEach((target, index) => {
+        if (target && target.getBoundingClientRect().top <= marker)
+          next = index;
+      });
+      if (
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 3
+      )
+        next = chapters.length - 1;
+      setActive((current) => (current === next ? current : next));
+      const scrollable = Math.max(
+        1,
+        document.documentElement.scrollHeight - window.innerHeight,
+      );
+      rail.current?.style.setProperty(
+        '--rail-progress',
+        String(Math.min(1, window.scrollY / scrollable)),
+      );
+    };
+    const schedule = () => {
+      if (frame === undefined) frame = window.requestAnimationFrame(update);
+    };
+    schedule();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return (
+    <nav
+      className="marketing-section-rail"
+      aria-label="Explore the page"
+      ref={rail}
+    >
+      <span className="section-rail-heading" aria-hidden="true">
+        EXPLORE / {String(active + 1).padStart(2, '0')}
+      </span>
+      <div className="section-rail-list" data-lenis-prevent-wheel>
+        <span className="section-rail-track" aria-hidden="true" />
+        {chapters.map(({ id, label }, index) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            className={active === index ? 'is-active' : undefined}
+            aria-label={`${String(index + 1).padStart(2, '0')}. ${label}`}
+            aria-current={active === index ? 'location' : undefined}
+          >
+            <span className="section-rail-number" aria-hidden="true">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span className="section-rail-label" aria-hidden="true">
+              {label}
+            </span>
+          </a>
+        ))}
+      </div>
+      <span className="section-rail-end" aria-hidden="true">
+        TAVREX / AI
+      </span>
+    </nav>
+  );
+}
+
 function Waveform({ active = false }: { active?: boolean }) {
   return (
     <div
@@ -253,6 +351,7 @@ function Waveform({ active = false }: { active?: boolean }) {
 function useVisibleCycle() {
   const ref = useRef<HTMLElement>(null);
   const [phase, setPhase] = useState(0);
+  const [visible, setVisible] = useState(false);
   useEffect(() => {
     if (
       !ref.current ||
@@ -262,10 +361,11 @@ function useVisibleCycle() {
     let timer: number | undefined;
     const observer = new IntersectionObserver(
       ([entry]) => {
+        setVisible(entry.isIntersecting);
         if (entry.isIntersecting && timer === undefined)
           timer = window.setInterval(
             () => setPhase((value) => (value + 1) % 4),
-            3000,
+            1900,
           );
         else if (!entry.isIntersecting && timer !== undefined) {
           window.clearInterval(timer);
@@ -280,75 +380,116 @@ function useVisibleCycle() {
       if (timer !== undefined) window.clearInterval(timer);
     };
   }, []);
-  return { ref, phase };
+  return { ref, phase, visible };
+}
+
+function useIllustrationCycle(count: number, initial: number, delay: number) {
+  const ref = useRef<HTMLElement>(null);
+  const [selected, setSelected] = useState(initial);
+  const [interacted, setInteracted] = useState(false);
+  useEffect(() => {
+    if (
+      interacted ||
+      !ref.current ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    )
+      return;
+    let inView = false;
+    let timer: number | undefined;
+    const sync = () => {
+      if (inView && !document.hidden && timer === undefined)
+        timer = window.setInterval(
+          () => setSelected((value) => (value + 1) % count),
+          delay,
+        );
+      else if ((!inView || document.hidden) && timer !== undefined) {
+        window.clearInterval(timer);
+        timer = undefined;
+      }
+    };
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry.isIntersecting;
+        sync();
+      },
+      { threshold: 0.2 },
+    );
+    observer.observe(ref.current);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', sync);
+      if (timer !== undefined) window.clearInterval(timer);
+    };
+  }, [count, delay, interacted]);
+  const choose = (index: number) => {
+    setInteracted(true);
+    setSelected(index);
+  };
+  return { ref, selected, choose, interacted };
 }
 
 function HeroArt() {
-  const { ref, phase } = useVisibleCycle();
+  const { ref, phase, visible } = useVisibleCycle();
   return (
     <section
-      className="hero-art"
+      className="hero-workflow"
       ref={ref}
       data-phase={phase}
+      data-playing={visible}
       aria-label="Illustration of a Tavrex meeting becoming sourced intelligence"
     >
-      <div className="art-topline">
-        <span>
-          <span className="art-live-dot" /> ILLUSTRATIVE TAVREX VIEW
-        </span>
-        <span>CONVERSATION / 24:08</span>
+      <div className="hero-workflow-head">
+        <span>MEETING / CUSTOMER CONVERSATION</span>
+        <span>24:08</span>
       </div>
-      <div className="art-recording">
-        <div className="art-recording-head">
-          <span className="art-mini-icon">
-            <AudioLines size={18} />
-          </span>
-          <div>
-            <small>RECORDING</small>
-            <strong>Customer conversation</strong>
-          </div>
-          <span className="art-playing">
-            <Play size={13} fill="currentColor" /> Source
-          </span>
+      <div className="hero-workflow-content">
+        <div className="hero-workflow-label">
+          <span className="art-live-dot" /> SOURCE THREAD · ILLUSTRATIVE
         </div>
-        <Waveform active />
-        <div className="art-timeline">
-          <span>00:00</span>
-          <div>
-            <i />
+        <div className="hero-workflow-steps">
+          <div className="hero-workflow-step">
+            <span className="step-node">
+              <Check size={12} />
+            </span>
+            <span>Recording uploaded</span>
+            <small>00:00</small>
           </div>
-          <span>24:08</span>
+          <div className="hero-workflow-step">
+            <span className="step-node">
+              <Check size={12} />
+            </span>
+            <span>Words aligned to time</span>
+            <small>12:47</small>
+          </div>
+          <div className="hero-workflow-step">
+            <span className="step-node">
+              <Check size={12} />
+            </span>
+            <span>Summary organized</span>
+            <small>READY</small>
+          </div>
+          <div className="hero-workflow-step">
+            <span className="step-node">
+              <Check size={12} />
+            </span>
+            <span>Next step linked to source</span>
+            <small>12:47 ↗</small>
+          </div>
         </div>
-      </div>
-      <div className="art-source-line" aria-hidden="true">
-        <span />
-        <i />
-        <span />
-      </div>
-      <div className="art-bottom">
-        <div className="art-transcript">
-          <small>TRANSCRIPT / 12:47</small>
-          <b>Sarah</b>
+        <div className="hero-workflow-source">
+          <span>AT THE SOURCE · 12:47</span>
           <p>“I’ll send the revised proposal by Friday.”</p>
-          <span>Original words, ready to revisit</span>
-        </div>
-        <div className="art-intelligence">
-          <small>
-            <Sparkles size={14} /> TAVREX INTELLIGENCE
-          </small>
-          <b>Send the revised proposal</b>
-          <p>
-            Owner · Sarah <span>Due · Friday</span>
-          </p>
           <strong>
-            Source <ArrowUpRight size={13} /> 12:47
+            Action · Send the revised proposal <ArrowUpRight size={13} />
           </strong>
         </div>
       </div>
-      <div className="art-foot">
-        <span>01 / RECORDING</span>
-        <span>02 / TRANSCRIPT</span>
-        <span>03 / ACTION</span>
+      <div className="hero-workflow-foot">
+        <span>
+          <span className="art-live-dot" /> SOURCE PRESERVED
+        </span>
+        <span>TRANSCRIPT → INTELLIGENCE → ACTION</span>
       </div>
     </section>
   );
@@ -356,16 +497,15 @@ function HeroArt() {
 
 function Hero() {
   return (
-    <section className="marketing-hero">
+    <section className="marketing-hero" id="top">
       <div className="marketing-container hero-grid">
         <div className="marketing-hero-copy">
           <span className="marketing-eyebrow">
             <i /> MEETING INTELLIGENCE, WITH THE SOURCE ATTACHED
           </span>
           <h1>
-            The meeting ends.
-            <br />
-            <em className="hero-emphasis">The meaning stays.</em>
+            <span>Every meeting</span> <span>leaves something</span>{' '}
+            <span>worth keeping.</span>
           </h1>
           <p>
             Upload a conversation. Tavrex brings back a searchable transcript,
@@ -473,9 +613,18 @@ const stages = [
   },
 ] as const;
 function Transformation() {
-  const [active, setActive] = useState(0);
+  const {
+    ref,
+    selected: active,
+    choose,
+    interacted,
+  } = useIllustrationCycle(stages.length, 0, 3300);
   return (
-    <section className="transformation marketing-section" id="product">
+    <section
+      className="transformation marketing-section"
+      id="product"
+      ref={ref}
+    >
       <div className="marketing-container">
         <div className="section-heading split">
           <span className="marketing-eyebrow">
@@ -499,7 +648,7 @@ function Transformation() {
                 type="button"
                 className={active === index ? 'is-active' : ''}
                 aria-pressed={active === index}
-                onClick={() => setActive(index)}
+                onClick={() => choose(index)}
               >
                 <small>
                   0{index + 1} / {stage.label.toUpperCase()}
@@ -509,11 +658,15 @@ function Transformation() {
               </button>
             ))}
           </div>
-          <div className="transform-stage" aria-live="polite">
+          <div
+            className="transform-stage"
+            aria-live={interacted ? 'polite' : 'off'}
+          >
             <div className="transform-stage-top">
               <span>THE SOURCE THREAD</span>
               <span>0{active + 1} / 04</span>
             </div>
+            <p className="transform-stage-description">{stages[active].body}</p>
             <div className="transform-art" key={active}>
               <div
                 className={`transform-visual transform-visual-${active}`}
@@ -611,9 +764,17 @@ function Transformation() {
 }
 
 function TranscriptStory() {
-  const [selected, setSelected] = useState(1);
+  const { ref, selected, choose } = useIllustrationCycle(
+    moments.length,
+    1,
+    3100,
+  );
   return (
-    <section className="transcript-story marketing-section">
+    <section
+      className="transcript-story marketing-section"
+      id="playback"
+      ref={ref}
+    >
       <div className="marketing-container transcript-grid">
         <div className="section-heading">
           <span className="marketing-eyebrow">
@@ -655,7 +816,7 @@ function TranscriptStory() {
                 type="button"
                 className={selected === index ? 'is-active' : ''}
                 aria-pressed={selected === index}
-                onClick={() => setSelected(index)}
+                onClick={() => choose(index)}
               >
                 <span>{moment.time}</span>
                 <div>
@@ -673,10 +834,18 @@ function TranscriptStory() {
 }
 
 function SummaryStory() {
-  const [selected, setSelected] = useState(0);
+  const { ref, selected, choose, interacted } = useIllustrationCycle(
+    perspectives.length,
+    0,
+    3900,
+  );
   const content = perspectives[selected];
   return (
-    <section className="summary-story marketing-section">
+    <section
+      className="summary-story marketing-section"
+      id="summaries"
+      ref={ref}
+    >
       <div className="marketing-container summary-grid">
         <div className="section-heading">
           <span className="marketing-eyebrow">
@@ -704,7 +873,7 @@ function SummaryStory() {
                 key={item.key}
                 type="button"
                 aria-pressed={selected === index}
-                onClick={() => setSelected(index)}
+                onClick={() => choose(index)}
               >
                 {item.key}
               </button>
@@ -713,7 +882,7 @@ function SummaryStory() {
           <article
             key={content.key}
             className="summary-demo-copy"
-            aria-live="polite"
+            aria-live={interacted ? 'polite' : 'off'}
           >
             <small>{content.eyebrow} / ILLUSTRATIVE</small>
             <h3>{content.title}</h3>
@@ -808,14 +977,70 @@ function highlight(text: string, query: string) {
   );
 }
 function SearchStory() {
+  const ref = useRef<HTMLElement>(null);
   const [query, setQuery] = useState('onboarding');
+  const [interacted, setInteracted] = useState(false);
+  useEffect(() => {
+    if (
+      interacted ||
+      !ref.current ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    )
+      return;
+    const terms = ['onboarding', 'proposal', 'customer'];
+    let current = terms[0];
+    let next = 1;
+    let mode: 'hold' | 'erase' | 'type' = 'hold';
+    let hold = 28;
+    let inView = false;
+    let timer: number | undefined;
+    const sync = () => {
+      if (inView && !document.hidden && timer === undefined)
+        timer = window.setInterval(() => {
+          if (mode === 'hold') {
+            if (--hold > 0) return;
+            mode = 'erase';
+          } else if (mode === 'erase') {
+            current = current.slice(0, -1);
+            setQuery(current);
+            if (!current) mode = 'type';
+          } else {
+            current = terms[next].slice(0, current.length + 1);
+            setQuery(current);
+            if (current === terms[next]) {
+              next = (next + 1) % terms.length;
+              mode = 'hold';
+              hold = 32;
+            }
+          }
+        }, 95);
+      else if ((!inView || document.hidden) && timer !== undefined) {
+        window.clearInterval(timer);
+        timer = undefined;
+      }
+    };
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        inView = entry.isIntersecting;
+        sync();
+      },
+      { threshold: 0.2 },
+    );
+    observer.observe(ref.current);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', sync);
+      if (timer !== undefined) window.clearInterval(timer);
+    };
+  }, [interacted]);
   const filtered = searches.filter((item) =>
     `${item.meeting} ${item.text}`
       .toLocaleLowerCase()
       .includes(query.trim().toLocaleLowerCase()),
   );
   return (
-    <section className="search-story marketing-section">
+    <section className="search-story marketing-section" id="search" ref={ref}>
       <div className="marketing-container search-grid">
         <div className="section-heading">
           <span className="marketing-eyebrow">
@@ -843,12 +1068,19 @@ function SearchStory() {
               aria-label="Search conversations"
               value={query}
               maxLength={40}
-              onChange={(event) => setQuery(event.target.value)}
+              onFocus={() => setInteracted(true)}
+              onChange={(event) => {
+                setInteracted(true);
+                setQuery(event.target.value);
+              }}
               placeholder="Search conversations"
             />
             <kbd>SEARCH</kbd>
           </label>
-          <div className="search-demo-results" aria-live="polite">
+          <div
+            className="search-demo-results"
+            aria-live={interacted ? 'polite' : 'off'}
+          >
             {!query.trim() ? (
               <p>Type a topic to explore the example conversations.</p>
             ) : filtered.length ? (
@@ -877,7 +1109,7 @@ function SearchStory() {
 function MomentsStory() {
   const [previewShare, setPreviewShare] = useState(false);
   return (
-    <section className="moments-story marketing-section">
+    <section className="moments-story marketing-section" id="moments">
       <div className="marketing-container moments-grid">
         <div className={`moments-art ${previewShare ? 'is-sharing' : ''}`}>
           <div className="moments-line">
@@ -1150,7 +1382,7 @@ function FAQ() {
 
 function FinalCTA() {
   return (
-    <section className="marketing-close">
+    <section className="marketing-close" id="start">
       <div className="marketing-container close-grid">
         <div>
           <span className="marketing-eyebrow">
@@ -1226,6 +1458,34 @@ function Footer() {
 
 export function MarketingHome() {
   useEffect(() => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const precisePointer = window.matchMedia(
+      '(hover: hover) and (pointer: fine)',
+    );
+    let scroller: Lenis | undefined;
+    const syncScroller = () => {
+      scroller?.destroy();
+      scroller = undefined;
+      if (reduceMotion.matches || !precisePointer.matches) return;
+      scroller = new Lenis({
+        autoRaf: true,
+        duration: 1.05,
+        easing: (progress) => 1 - Math.pow(1 - progress, 3),
+        anchors: { offset: -78, duration: 0.88 },
+        stopInertiaOnNavigate: true,
+        syncTouch: false,
+      });
+    };
+    syncScroller();
+    reduceMotion.addEventListener('change', syncScroller);
+    precisePointer.addEventListener('change', syncScroller);
+    return () => {
+      reduceMotion.removeEventListener('change', syncScroller);
+      precisePointer.removeEventListener('change', syncScroller);
+      scroller?.destroy();
+    };
+  }, []);
+  useEffect(() => {
     document.title = 'Tavrex AI — Keep what the meeting meant';
     document
       .querySelector('meta[name="description"]')
@@ -1246,11 +1506,10 @@ export function MarketingHome() {
     );
     const observer = new IntersectionObserver(
       (entries) => {
-        for (const entry of entries)
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
-          }
+        for (const entry of entries) {
+          entry.target.classList.toggle('is-in-view', entry.isIntersecting);
+          if (entry.isIntersecting) entry.target.classList.add('is-visible');
+        }
       },
       { threshold: 0.04, rootMargin: '0px 0px -24px 0px' },
     );
@@ -1258,12 +1517,56 @@ export function MarketingHome() {
     document.querySelector('.marketing-page')?.classList.add('has-motion');
     return () => observer.disconnect();
   }, []);
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ink = document.querySelectorAll<HTMLElement>(
+      '.marketing-section h2 em, .marketing-close h2 em',
+    );
+    const story = document.querySelector<HTMLElement>('.transformation');
+    let frame: number | undefined;
+    const update = () => {
+      frame = undefined;
+      const viewport = window.innerHeight;
+      for (const word of ink) {
+        const top = word.getBoundingClientRect().top;
+        const fill = Math.max(
+          0,
+          Math.min(1, (viewport * 0.82 - top) / (viewport * 0.55)),
+        );
+        word.style.setProperty(
+          '--ink-stop',
+          String(Math.round(fill * 100)) + '%',
+        );
+      }
+      if (story) {
+        const bounds = story.getBoundingClientRect();
+        const range = Math.max(1, bounds.height - viewport * 0.2);
+        const progress = Math.max(
+          0,
+          Math.min(1, (viewport * 0.8 - bounds.top) / range),
+        );
+        story.style.setProperty('--story-progress', String(progress));
+      }
+    };
+    const schedule = () => {
+      if (frame === undefined) frame = window.requestAnimationFrame(update);
+    };
+    schedule();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+    };
+  }, []);
   return (
     <div className="marketing-page">
       <a className="skip-link" href="#marketing-main">
         Skip to content
       </a>
       <Navigation />
+      <SectionRail />
       <main id="marketing-main">
         <Hero />
         <CapabilityStrip />

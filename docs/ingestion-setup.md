@@ -46,7 +46,10 @@ remote service.
 - Limits: 25 MB, ten minutes, three uploads per browser per rolling day, twenty
   across the workspace per rolling day, and one hundred rows total. The SQL
   reservation is atomic. Free provider allowances still apply.
-- Processing uses an atomic three-minute lease and at most three processing
+- Recordings over two minutes get a private, browser-prepared audio copy in R2.
+  The Worker transcribes bounded PCM ranges and saves each range's timestamped
+  transcript before continuing; the original media remains available for playback.
+- Processing uses an atomic three-minute lease and at most six processing
   attempts per recording. Keep the tab open; this is a bounded request flow,
   without a background job queue. Interrupted requests offer check/resume.
 - Whisper creates actual timestamped segments. Speaker identities are not inferred.

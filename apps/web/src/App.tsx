@@ -57,6 +57,7 @@ import {
   UploadedLibrary,
   UploadedMeetingDetail,
 } from './components/UploadMeeting';
+import './editorial.css';
 
 function Brand() {
   return (
@@ -224,10 +225,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
         )}
         <main id="main">{children}</main>
-        <footer>
-          Made for the moments that matter.
-          <span>TAVREX AI · ASSESSMENT BUILD</span>
-        </footer>
+        <footer>Made for the moments that matter.</footer>
       </div>
     </div>
   );

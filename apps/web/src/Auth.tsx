@@ -15,6 +15,8 @@ import { accountRequest, sessionSchema, useAuth } from './auth-state';
 import { ThemeToggle } from './ThemeToggle';
 import './auth.css';
 import './auth-upgrade.css';
+import './editorial.css';
+import './auth-polish.css';
 
 export function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
   const { user, loading, refresh } = useAuth();

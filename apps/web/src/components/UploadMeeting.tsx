@@ -421,6 +421,10 @@ export function UploadedMeetingDetail({ id }: { id: string }) {
       )}
       {(meeting.status === 'uploading' && !transfer) ||
       meeting.processing_error === 'upload_failed' ||
+      (meeting.duration_seconds > 120 &&
+        meeting.transcript === null &&
+        (meeting.processing_error === 'transcription_failed' ||
+          !!transfer?.error)) ||
       (transfer?.error && !transfer.confirmed) ? (
         <button
           className="secondary-button"

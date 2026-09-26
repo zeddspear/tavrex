@@ -10,22 +10,73 @@ const viewports = [
   { width: 390, height: 844 },
 ];
 
+test('landing chapter rail tracks sections and smooth scrolling stays on marketing', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  const rail = page.getByRole('navigation', { name: 'Explore the page' });
+  await expect(rail).toBeVisible();
+  await expect(page.locator('html')).toHaveClass(/lenis/);
+  await rail.getByRole('link', { name: '05. Source evidence' }).click();
+  await expect(page).toHaveURL(/#evidence$/);
+  await expect(
+    rail.getByRole('link', { name: '05. Source evidence' }),
+  ).toHaveAttribute('aria-current', 'location');
+  await page.getByRole('link', { name: 'Sign in' }).first().click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.locator('html')).not.toHaveClass(/lenis/);
+});
+
+test('landing chapter links keep native scrolling with reduced motion', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.locator('html')).not.toHaveClass(/lenis/);
+  const rail = page.getByRole('navigation', { name: 'Explore the page' });
+  await rail.getByRole('link', { name: '06. Search' }).click();
+  await expect(page).toHaveURL(/#search$/);
+  await expect(rail.getByRole('link', { name: '06. Search' })).toHaveAttribute(
+    'aria-current',
+    'location',
+  );
+});
+
 test('public product story stays contained and leads to signup at seven widths', async ({
   page,
-}, testInfo) => {
-  test.skip(testInfo.project.name !== 'chromium');
+}) => {
   test.setTimeout(120000);
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.goto('/');
     await expect(
       page.getByRole('heading', {
-        name: /The meeting ends.*The meaning stays/,
+        name: /Every meeting.*leaves something worth keeping/,
       }),
     ).toBeVisible();
-    await expect(page.locator('.hero-art .art-intelligence')).toContainText(
+    await expect(page.locator('.hero-workflow-source')).toContainText(
       'Send the revised proposal',
     );
+    const railFits = await page.evaluate(() => {
+      const frame = document
+        .querySelector('.hero-grid')!
+        .getBoundingClientRect();
+      const rail = document
+        .querySelector('.capability-strip .marketing-container')!
+        .getBoundingClientRect();
+      const items = document.querySelectorAll('.capability-strip span');
+      return (
+        Math.abs(rail.left - frame.left) < 2 &&
+        Math.abs(rail.right - frame.right) < 2 &&
+        [...items].every((item) => {
+          const box = item.getBoundingClientRect();
+          return box.left >= rail.left && box.right <= rail.right;
+        })
+      );
+    });
+    expect(railFits).toBe(true);
     const height = await page.evaluate(
       () => document.documentElement.scrollHeight,
     );
@@ -59,6 +110,7 @@ test('public product story stays contained and leads to signup at seven widths',
 test('marketing illustrations explain source navigation, summaries and search', async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   await page.getByRole('button', { name: /02 \/ TRANSCRIPT/ }).click();
   await expect(page.locator('.transform-object')).toContainText(
@@ -76,9 +128,12 @@ test('marketing illustrations explain source navigation, summaries and search', 
     .click();
   await expect(summary).not.toHaveText(general);
   const sales = await summary.innerText();
-  await page
-    .getByRole('button', { name: 'Recruiting / Interview', exact: true })
-    .click();
+  const recruiting = page.getByRole('button', {
+    name: 'Recruiting / Interview',
+    exact: true,
+  });
+  await recruiting.click();
+  await expect(recruiting).toHaveAttribute('aria-pressed', 'true');
   await expect(summary).not.toHaveText(sales);
   await page.getByRole('button', { name: /Source · 12:47/ }).click();
   await expect(page.locator('.evidence-scene')).toHaveClass(/is-connected/);
@@ -94,7 +149,11 @@ test('marketing illustrations explain source navigation, summaries and search', 
   await expect(page.locator('.moments-art')).toHaveClass(/is-sharing/);
   await page.getByRole('button', { name: 'Saved moment' }).click();
   await expect(page.locator('.moments-art')).not.toHaveClass(/is-sharing/);
-  await page.getByRole('button', { name: /02 Sales conversations/ }).click();
+  const salesUseCase = page.getByRole('button', {
+    name: /02 Sales conversations/,
+  });
+  await salesUseCase.click();
+  await expect(salesUseCase).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.use-cases-panel')).toContainText(
     'Keep commitments connected',
   );
@@ -111,14 +170,27 @@ test('dark secondary button stays legible on hover', async ({ page }) => {
   await page.goto('/');
   const button = page.getByRole('link', { name: 'See how it works' });
   await button.hover();
-  await expect
-    .poll(async () =>
-      button.evaluate((node) => {
-        const style = getComputedStyle(node);
-        return [style.color, style.backgroundColor];
-      }),
-    )
-    .toEqual(['rgb(240, 243, 236)', 'rgb(34, 45, 38)']);
+  const contrast = await button.evaluate((node) => {
+    const style = getComputedStyle(node);
+    const rgb = (value: string) =>
+      (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    const luminance = (value: string) => {
+      const channels = rgb(value).map((part) => {
+        const normalized = part / 255;
+        return normalized <= 0.04045
+          ? normalized / 12.92
+          : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+    };
+    const foreground = luminance(style.color);
+    const background = luminance(style.backgroundColor);
+    return (
+      (Math.max(foreground, background) + 0.05) /
+      (Math.min(foreground, background) + 0.05)
+    );
+  });
+  expect(contrast).toBeGreaterThanOrEqual(4.5);
 });
 
 test('immediate signup enters the existing dashboard when confirmation is disabled', async ({
@@ -225,7 +297,9 @@ test('confirmed login enters existing app and sign-out returns to the public sit
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(
-    page.getByRole('heading', { name: /The meeting ends.*The meaning stays/ }),
+    page.getByRole('heading', {
+      name: /Every meeting.*leaves something worth keeping/,
+    }),
   ).toBeVisible();
 });
 
@@ -319,14 +393,14 @@ test('chosen theme follows login into the workspace and survives reload', async 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(page.locator('.sidebar')).toHaveCSS(
     'background-color',
-    'rgb(27, 36, 32)',
+    'rgb(8, 8, 8)',
   );
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('button', { name: 'Switch to light mode' }).click();
   await expect(page.locator('.sidebar')).toHaveCSS(
     'background-color',
-    'rgb(240, 242, 239)',
+    'rgb(239, 237, 231)',
   );
   await page.goto('/app/meetings/recording-walkthrough');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
@@ -337,7 +411,7 @@ test('reduced motion leaves content readable without entrance animation', async 
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
-  await expect(page.locator('.art-intelligence')).toBeVisible();
+  await expect(page.locator('.hero-workflow-source')).toBeVisible();
   expect(
     await page
       .locator('.marketing-hero h1')
@@ -345,4 +419,65 @@ test('reduced motion leaves content readable without entrance animation', async 
   ).toBe('none');
   await page.getByRole('link', { name: 'See how it works' }).click();
   await expect(page).toHaveURL(/#product$/);
+});
+
+test('both themes cover the complete public page, including the hero artwork', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
+  await page.goto('/');
+  await expect(
+    page.getByRole('heading', {
+      name: /Every meeting.*leaves something worth keeping/,
+    }),
+  ).toBeVisible();
+  const surfaces = () =>
+    page.evaluate(() => {
+      const color = (selector: string) =>
+        getComputedStyle(document.querySelector(selector)!).backgroundColor;
+      const stages = [
+        '.marketing-hero',
+        ...[...document.querySelectorAll('.marketing-section')].map(
+          (element) => `.${element.classList[0]}`,
+        ),
+        '.marketing-close',
+        '.marketing-footer',
+      ];
+      return {
+        page: color('.marketing-page'),
+        stages: stages.map(color),
+        artwork: getComputedStyle(
+          document.querySelector('.hero-workflow')!,
+          '::before',
+        ).backgroundImage,
+        navText: getComputedStyle(document.querySelector('.marketing-brand')!)
+          .color,
+        heroText: getComputedStyle(
+          document.querySelector('.marketing-hero h1')!,
+        ).color,
+      };
+    });
+  const dark = await surfaces();
+  expect(new Set(dark.stages)).toEqual(new Set([dark.page]));
+  expect(dark.page).toBe('rgb(5, 5, 5)');
+  await page
+    .getByRole('button', { name: 'Switch to light mode' })
+    .first()
+    .click();
+  const light = await surfaces();
+  expect(new Set(light.stages)).toEqual(new Set([light.page]));
+  expect(light.page).toBe('rgb(246, 244, 239)');
+  expect(light.navText).not.toBe(dark.navText);
+  expect(light.heroText).not.toBe(dark.heroText);
+  expect(light.artwork).not.toBe(dark.artwork);
+  await page.reload();
+  await expect(page.locator('.marketing-hero h1')).toBeVisible();
+  expect((await surfaces()).page).toBe(light.page);
+  await page.goto('/login');
+  await expect(page.getByLabel('Email address')).toBeVisible();
+  expect(
+    await page
+      .locator('.auth-story')
+      .evaluate((node) => getComputedStyle(node).backgroundColor),
+  ).toBe('rgb(238, 234, 227)');
 });
